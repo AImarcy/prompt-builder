@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>プロンプトビルダー（日英両対応｜指定メニュー版）</title>
+  <style>
+    :root{--bg:#0b0d12;--panel:#141826;--line:#232a3b;--text:#e7eaf1;--muted:#a1a8b8;--accent:#86b7ff}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:15.5px/1.6 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",Helvetica,Arial}
+    .wrap{max-width:1200px;margin:0 auto;padding:22px}
+    h1{margin:0 0 6px;font-size:22px}
+    p.lead{margin:0 0 14px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+    .title{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
+    .title strong{font-size:15px}
+    .badge{font-size:12px;background:#21283a;color:#c9d5ff;border:1px solid #2a3250;border-radius:999px;padding:3px 8px}
+    label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
+    select,textarea,button{width:100%}
+    select,textarea{background:#0d111a;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:9px}
+    select[multiple]{min-height:140px}
+    textarea{min-height:200px;resize:vertical}
+    .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    @media (max-width:980px){.row{grid-template-columns:1fr}}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .btn{appearance:none;background:var(--accent);color:#0a0f1a;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn.sec{background:#2b3246;color:#d5ddf7}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:980px){.two{grid-template-columns:1fr}}
+    .hint{font-size:12px;color:#98a3b8;margin-top:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>プロンプトビルダー（日英両対応｜指定メニュー版）</h1>
+    <p class="lead">指定されたプルダウン項目のみで構成。各選択肢は <code>日本語|English</code> のペアで管理し、<b>日本語／英語</b> のプロンプトを同時生成します。</p>
+
+    <div class="grid" id="formArea"></div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="title"><strong>出力</strong><span class="badge">Prompt (JA / EN)</span></div>
+      <div class="actions">
+        <button class="btn" id="gen">プロンプト生成</button>
+        <button class="btn sec" id="copyJa">日本語をコピー</button>
+        <button class="btn sec" id="copyEn">Copy English</button>
+      </div>
+      <div class="two" style="margin-top:10px">
+        <div>
+          <label>日本語プロンプト</label>
+          <textarea id="outJa" placeholder="上のプルダウンを選んで『プロンプト生成』"></textarea>
+        </div>
+        <div>
+          <label>English Prompt</label>
+          <textarea id="outEn" placeholder="Select dropdowns then click Generate"></textarea>
+        </div>
+      </div>
+      <p class="hint">※ アクセサリーは複数選択可（Ctrl/⌘ クリック）。</p>
+    </div>
+  </div>
+
+  <script>
+    // 指定メニュー：Style, Angle, Gender(2), Age, Nationality, Body type, Hair style, Facial expression,
+    // Wardrobe, Wardrobe color, Wardrobe pattern, Fabric, Innerwear, Innerwear color, Socks color,
+    // Footwear, Footwear color, Accessories, Film/Processing
+
+    const DATA = [
+      { group:'基本', badge:'Basics', fields:[
+        { id:'style', label:'スタイル / Style', options:[
+          'フォトリアル|Photorealistic','スーパーリアル（超精細）|Hyper-realistic','漫画調|Manga-style','水彩画風|Watercolor illustration','油彩風|Oil painting look','スタジオ・エディトリアル・クリーン|Studio editorial clean','ストリートスナップ|Street snapshot','アナログ（Kodak Portra）|Analog film (Kodak Portra)','アナログ（Fujifilm Provia）|Analog film (Fujifilm Provia)','ヴィンテージ・ポラロイド|Vintage Polaroid','ハイファッション・エディトリアル|High fashion editorial','ランウェイ記録|Runway capture','パパラッチ風|Candid paparazzi style','3Dレンダー風|3D render look','ミニマル・ポスター|Minimalist design poster','シュルレアリスム|Surrealist photography','幻想的エーテル|Fantasy ethereal glow','コマーシャル商品撮影|Commercial product shot','スポーツウェア・キャンペーン|Sportswear campaign','90年代日本誌スキャン|90s Japanese magazine scan','80年代アメリカ広告|80s American ad style'
+        ]},
+        { id:'angle', label:'アングル / Angle', options:[
+          'バストアップ|Bust-up portrait','ウエストアップ|Waist-up portrait','全身（頭からつま先まで、余白あり）|Full body (head to toe) with margin','サイドプロファイル（バスト）|Side profile (bust)','サイドプロファイル（全身）|Side profile (full body)','俯瞰（オーバーヘッド）|Overhead shot','ローアングル（ヒーロー）|Low angle hero shot','アイレベル（ニュートラル）|Eye-level neutral shot','布地ディテールのクローズアップ|Close-up detail on fabric','三四（3/4）ポートレート|Three-quarter portrait','歩行のダイナミックフレーム|Walking dynamic frame','背面ビュー|Back view','肩越しショット|Over-shoulder candid','二人のダブルポートレート|Double portrait','クロップ強めのスナップ|Candid cropped mid-frame','ランウェイ距離のフルレングス|Full-length runway distance','アクセサリーにズーム|Zoomed-in accessory focus','斜め（ダッチアングル）|Tilted Dutch angle','超ワイド|Extreme wide shot','ドア/窓の枠内でフレーミング|Framed within doorway/window','椅子に座ったエディトリアル|Seated editorial shot'
+        ]},
+        { id:'gender', label:'性別', options:[ '男性|male','女性|female' ]},
+        { id:'age', label:'年齢', options:[
+          '10代|teens','20代|twenties','30代|thirties','40代|forties','50代|fifties','60代|sixties','70代|seventies'
+        ]},
+        { id:'nation', label:'国籍', options:[
+          '日本|Japanese','韓国|Korean','中国|Chinese','台湾|Taiwanese','アメリカ|American','カナダ|Canadian','イギリス|British','フランス|French','ドイツ|German','イタリア|Italian','スペイン|Spanish','ポルトガル|Portuguese','オーストラリア|Australian','ニュージーランド|New Zealander','インド|Indian','パキスタン|Pakistani','ベトナム|Vietnamese','タイ|Thai','フィリピン|Filipino','インドネシア|Indonesian','シンガポール|Singaporean','マレーシア|Malaysian'
+        ]},
+        { id:'body', label:'体型', options:[
+          '高身長スレンダー|tall slender','標準体型|average build','アスリート体型|athletic build','骨格ナチュラル|natural frame','骨格ストレート|straight frame','骨格ウェーブ|wave frame','グラマラス|curvy','プラスサイズ|plus-size','細身|slim','筋肉質|muscular','華奢|delicate','がっちり|sturdy','ロングレッグ|long legs','短足寄り|shorter legs','肩幅広め|broad shoulders','なで肩|sloped shoulders','小顔|small face','標準身長|average height','低身長|short','舞台映えシルエット|stage silhouette'
+        ]}
+      ]},
+
+      { group:'ヘア / フェイス', badge:'Hair / Face', fields:[
+        { id:'hair', label:'髪型 / Hair style', options:[
+          'スリックバック|slick back','センターパート|center part','サイドパート|side part','フェード|fade cut','クルーカット|crew cut','ロングウェーブ|long wavy hair','ボブ|bob cut','ピクシー|pixie cut','アフロ|afro','ブレイズ|braids','ポニーテール|ponytail','トップノット|top knot','モヒカン|mohawk','アンダーカット|undercut','70sシャギー|shaggy 70s style','カーリーパーマ|curly perm','坊主|buzz cut','ロングストレート|long straight','ミディアムレイヤー|shoulder length layered','ドレッド|dreadlocks','モダンマレット|modern mullet'
+        ]},
+        { id:'face', label:'表情 / Facial expression', options:[
+          '微笑み|smile (soft)','満面の笑み|smile (broad)','真顔|serious','ニュートラル|neutral','目を閉じている|eyes closed','笑い|laughing','下を見る視線|gaze downward','上を見る視線|gaze upward','驚き|shocked','怒り|angry','思索的|thoughtful','色気のある視線|seductive look','物憂げ|melancholic','笑いの途中|candid laugh mid-motion','ささやく|whispering','会話している|talking to someone','気が散っている|distracted','横目で見る|looking away sideways','自信のある微笑|confident smirk','あくび|yawning','歌っている|singing'
+        ]}
+      ]},
+
+      { group:'服装', badge:'Wardrobe', fields:[
+        { id:'wardrobe', label:'服装 / Wardrobe', options:[
+          'スーツ|suit','セットアップ|matching set','ジャケット＋パンツ|jacket with trousers','コート|coat','トレンチコート|trench coat','ブルゾン|blouson','レザージャケット|leather jacket','デニムジャケット|denim jacket','シャツ＋パンツ|shirt with trousers','ニット＋パンツ|knit with trousers','Tシャツ＋デニム|T-shirt with denim','フーディ＋パンツ|hoodie with pants','シャツ＋ショーツ|shirt with shorts','カーディガン＋パンツ|cardigan with trousers','ポロシャツ＋パンツ|polo with trousers','タキシード|tuxedo','ワークウェア|workwear','ミリタリー|military','スポーツミックス|sports mix','前衛的レイヤー|avant-garde layering'
+        ]},
+        { id:'wardrobeColor', label:'服装の色', options:[
+          'ブラック|black','ホワイト|white','ネイビー|navy','グレー|grey','チャコール|charcoal','ブラウン|brown','ベージュ|beige','クリーム|cream','オリーブ|olive','カーキ|khaki','ダークグリーン|dark green','ライトブルー|light blue','スカイブルー|sky blue','バーガンディ|burgundy','レッド|red','イエロー|yellow','パープル|purple','ピンク|pink','ティール|teal','ブロンズ|bronze','シルバー|silver'
+        ]},
+        { id:'wardrobePattern', label:'服装の柄', options:[
+          '無地|solid','ストライプ|stripe','ピンストライプ|pinstripe','ウィンドウペイン|windowpane','グレンチェック|glen check','千鳥格子|houndstooth','ヘリンボーン|herringbone','ツイード柄|tweed pattern','タータン|tartan','アーガイル|argyle','プレイド|plaid','シェブロン|chevron','ドット|polka dot','フローラル|floral print','ペイズリー|paisley','カモフラージュ|camouflage','アニマル|animal print','抽象柄|abstract','グラデーション|gradient','メタリック織り|metallic woven','刺繍|embroidered'
+        ]},
+        { id:'fabric', label:'生地 / Fabric', options:[
+          'ウール|wool','コットン|cotton','リネン|linen','ポリエステル|polyester','カシミヤ|cashmere','ツイード|tweed','コーデュロイ|corduroy','ベルベット|velvet','デニム|denim','ナイロンブレンド|nylon blend','テクニカル|technical fabric','シアサッカー|seersucker','ギャバジン|gabardine','ジャージー|jersey','シルクブレンド|silk blend','モヘア|mohair','フリース|fleece','フェルトウール|felted wool','ドレープクレープ|draped crepe','シャイニーサテン|shiny satin'
+        ]},
+        { id:'innerType', label:'インナー / Innerwear', options:[
+          'ドレスシャツ|dress shirt','Tシャツ|T-shirt','ポロシャツ|polo shirt','タンクトップ|tank top','タートルネック|turtle neck','スウェットシャツ|sweatshirt','ヘンリーネック|henley','オープンカラーシャツ|open collar shirt','ニット|knitwear','ベスト|vest','フーディ|hoodie','メッシュシャツ|mesh shirt','シルクブラウス|silk blouse','プリーツシャツ|pleated shirt','バンドカラーシャツ|band collar shirt','オックスフォードシャツ|oxford shirt','ラグビーシャツ|rugby shirt','グラフィックT|graphic tee','ロングスリーブT|long sleeve tee','レザートップ|leather top'
+        ]},
+        { id:'innerColor', label:'インナーの色', options:[
+          '白|white','黒|black','ネイビー|navy','グレー|grey','クリーム|cream','ブラウン|brown','ベージュ|beige','オリーブ|olive','バーガンディ|burgundy','イエロー|yellow','レッド|red','ブルー|blue','パープル|purple','ターコイズ|turquoise','ピンク|pink','ペールグリーン|pastel green','モノクロ|monochrome','ストライプ|striped','チェック|checked','パターン|patterned'
+        ]},
+        { id:'sockColor', label:'靴下の色', options:[
+          'ネイビー|navy','黒|black','白|white','ベージュ|beige','グレー|grey','ダークグリーン|dark green','ブラウン|brown','バーガンディ|burgundy','チャコール|charcoal','ライトブルー|light blue','オリーブ|olive','キャメル|camel','ライトグレー|light grey','ベビーピンク|baby pink','イエロー|yellow','パープル|purple','ストライプ|striped','ドット|polka dot','ヘリンボーン|herringbone','千鳥格子|houndstooth'
+        ]},
+        { id:'shoeType', label:'靴 / Footwear', options:[
+          'オックスフォード|leather oxford','ダービー|derby','ローファー|loafer','モンクストラップ|monk strap','ブローグ|brogue','チェルシーブーツ|chelsea boot','チャッカブーツ|chukka boot','ワークブーツ|work boot','スニーカー（クラシック白）|sneaker classic white','スニーカー（レトロランナー）|sneaker retro runner','ハイカットスニーカー|high-top sneaker','キャンバススニーカー|canvas sneaker','エスパドリーユ|espadrille','サンダル|sandal','スリッポン|slip-on','コンバットブーツ|combat boot','ハイキングブーツ|hiking boot','ドレスブーツ|dress boot','パテントレザーシューズ|patent leather shoe','ドライビングシューズ|driving shoe'
+        ]},
+        { id:'shoeColor', label:'靴の色', options:[
+          '黒|black','ブラウン|brown','白|white','グレー|grey','ネイビー|navy','バーガンディ|burgundy','タン|tan','クリーム|cream','グリーン|green','イエロー|yellow','レッド|red','ブルー|blue','ブロンズ|bronze','ゴールド|gold','シルバー|silver','オリーブ|olive','パターン|patterned','透明ソール|transparent sole','グラデーション|gradient tone','マットブラック|matte black'
+        ]},
+        { id:'acc', label:'アクセサリー（複数選択可）', multiple:true, options:[
+          '高級腕時計|luxury wristwatch','スマートウォッチ|smartwatch','サングラス（ティアドロップ）|sunglasses (aviator)','サングラス（ラウンド）|sunglasses (round)','サングラス（スクエア）|sunglasses (square)','レザーベルト|leather belt','キャンバスベルト|canvas belt','バックパック|backpack','トートバッグ|tote bag','クロスボディバッグ|crossbody bag','クラッチ|clutch','スカーフ|scarf','ネクタイ|tie','ボウタイ|bow tie','ポケットチーフ|pocket square','フェドラハット|hat (fedora)','キャップ|cap','ビーニー|beanie','手袋|gloves','リング|ring','ネックレス|necklace'
+        ]}
+      ]},
+
+      { group:'処理', badge:'Film / Process', fields:[
+        { id:'process', label:'フィルム・処理 / Film processing', options:[
+          'フィルムグレイン強|film grain heavy','フィルムグレイン弱|film grain subtle','モーションブラー弱|motion blur slight','モーションブラー強|motion blur strong','アナログのダスト|analog dust specks','ネガ傷スクラッチ|scratched negative look','ハレーション|soft halation glow','ハイライト過多|overexposed highlight','アンダー気味|underexposed moody','色あせ|color faded','セピア|sepia tone','モノクロ|black & white','クロスプロセス|cross-processed','HDR風明瞭度|HDR-like clarity','レンズフレア|lens flare','二重露光|double exposure','ティルトシフト的ボケ|tilt-shift blur','ビネット暗|vignette dark','ビネット明|vignette bright','シネマLUT|cinematic LUT applied','雑誌スキャンの質感|magazine scan artifact'
+        ]}
+      ]}
+    ];
+
+    // ---- UI生成 ----
+    const formArea = document.getElementById('formArea');
+    function makeCard(title, badge){
+      const d = document.createElement('div'); d.className='card';
+      d.innerHTML = `<div class="title"><strong>${title}</strong><span class="badge">${badge}</span></div>`; return d;
+    }
+    function makeSelect(id,label,options,multiple){
+      const wrap = document.createElement('div'); wrap.className='row';
+      const col = document.createElement('div');
+      col.innerHTML = `<label>${label}</label>`;
+      const sel = document.createElement('select'); sel.id=id; if(multiple) sel.multiple=true;
+      options.forEach(o=>{ const op=document.createElement('option'); op.value=o; op.textContent=o.split('|')[0]; sel.appendChild(op); });
+      col.appendChild(sel); wrap.appendChild(col); return wrap;
+    }
+    DATA.forEach(g=>{ const card = makeCard(g.group,g.badge); g.fields.forEach(f=>{ card.appendChild(makeSelect(f.id,f.label,f.options,f.multiple)); }); formArea.appendChild(card); });
+
+    // ---- 値取得 & 生成 ----
+    function splitPair(v){ const p=String(v).split('|'); return [p[0]||'', p[1]||'']; }
+    function valPair(id){ return splitPair(document.getElementById(id).value); }
+    function valPairsMulti(id){ const arr=[...document.getElementById(id).selectedOptions].map(o=>o.value); return [arr.map(v=>splitPair(v)[0]), arr.map(v=>splitPair(v)[1])]; }
+
+    function build(){
+      const [styleJa,styleEn]=valPair('style');
+      const [angleJa,angleEn]=valPair('angle');
+      const [genderJa,genderEn]=valPair('gender');
+      const [ageJa,ageEn]=valPair('age');
+      const [nationJa,nationEn]=valPair('nation');
+      const [bodyJa,bodyEn]=valPair('body');
+      const [hairJa,hairEn]=valPair('hair');
+      const [faceJa,faceEn]=valPair('face');
+
+      const [wardJa,wardEn]=valPair('wardrobe');
+      const [wColorJa,wColorEn]=valPair('wardrobeColor');
+      const [wPatJa,wPatEn]=valPair('wardrobePattern');
+      const [fabJa,fabEn]=valPair('fabric');
+      const [innerJa,innerEn]=valPair('innerType');
+      const [innerCJa,innerCEn]=valPair('innerColor');
+      const [sockJa,sockEn]=valPair('sockColor');
+      const [shoeJa,shoeEn]=valPair('shoeType');
+      const [shoeCJa,shoeCEn]=valPair('shoeColor');
+      const [accJa,accEn]=valPairsMulti('acc');
+      const accJaStr = accJa.length? `、アクセサリー：${accJa.join('・')}`:'';
+      const accEnStr = accEn.length? `, accessories: ${accEn.join(', ')}`:'';
+
+      const [procJa,procEn]=valPair('process');
+
+      const ja = `【スタイル】\n${styleJa}。\n\n【アングル】\n${angleJa}。\n\n【被写体】\n性別：${genderJa}、年齢：${ageJa}、国籍：${nationJa}、体型：${bodyJa}。\n表情：「${faceJa}」、髪型：「${hairJa}」。\n\n【服装】\n${wardJa}。色：${wColorJa}、柄：${wPatJa}。生地：${fabJa}。インナー：${innerJa}（色：${innerCJa}）。\n靴：${shoeJa}（色：${shoeCJa}）、靴下：${sockJa}${accJaStr}。\n\n【処理】\n${procJa}。\n\n【編集方針】\n誌面掲載を前提に、プロポーション、歩行・ポージング、自然な肌、スタイルの明瞭さを強調。`;
+
+      const en = `[Style]\n${styleEn}.\n\n[Angle]\n${angleEn}.\n\n[Subject]\nGender: ${genderEn}, Age: ${ageEn}, Nationality: ${nationEn}, Body: ${bodyEn}.\nExpression: "${faceEn}", Hair: "${hairEn}".\n\n[Wardrobe]\n${wardEn}. Color: ${wColorEn}, Pattern: ${wPatEn}. Fabric: ${fabEn}. Innerwear: ${innerEn} (Color: ${innerCEn}).\nFootwear: ${shoeEn} (Color: ${shoeCEn}), Socks: ${sockEn}${accEnStr}.\n\n[Processing]\n${procEn}.\n\n[Editorial Intention]\nEmphasize proportion, walking/posing, natural skin, and style clarity for editorial publication.`;
+
+      document.getElementById('outJa').value = ja;
+      document.getElementById('outEn').value = en;
+    }
+
+    document.getElementById('gen').addEventListener('click', build);
+    document.getElementById('copyJa').addEventListener('click', ()=>{const t=document.getElementById('outJa');t.select();document.execCommand('copy');});
+    document.getElementById('copyEn').addEventListener('click', ()=>{const t=document.getElementById('outEn');t.select();document.execCommand('copy');});
+
+    build();
+  </script>
+</body>
+</html>
